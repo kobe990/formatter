@@ -466,6 +466,9 @@
       utils.addListener(self.el, 'keydown', function (evt) {
         self._keyDown(evt);
       });
+      utils.addListener(self.el, 'keyup', function (evt) {
+        self._keyUp(evt);
+      });
       utils.addListener(self.el, 'keypress', function (evt) {
         self._keyPress(evt);
       });
@@ -543,12 +546,31 @@
     Formatter.prototype._keyDown = function (evt) {
       // The first thing we need is the character code
       var k = evt.which || evt.keyCode;
+      this.is229 = k === 229 ? true : false
       // If delete key
       if (k && utils.isDelKeyDown(evt.which, evt.keyCode)) {
         // Process the keyCode and prevent default
         this._processKey(null, k);
         return utils.preventDefault(evt);
       }
+    };
+
+    // when use Chinese input on safari, the keypress event can't be triggered.
+    // And in the keydown event, the keycode is always 229 so that we can't recognize
+    // which key is pressed. But keyup is working very well. so add listener on the keyup event
+    Formatter.prototype._keyUp = function (evt) {
+      if(this.is229) {
+        // The first thing we need is the character code
+        var k, isSpecial;
+        // Mozilla will trigger on special keys and assign the the value 0
+        // We want to use that 0 rather than the keyCode it assigns.
+        k = evt.which || evt.keyCode;
+        isSpecial = utils.isSpecialKeyPress(evt.which, evt.keyCode);
+        // Process the keyCode and prevent default
+        if (!utils.isDelKeyPress(evt.which, evt.keyCode) && !isSpecial && !utils.isModifier(evt)) {
+          this._processKey(String.fromCharCode(k), false);
+          return utils.preventDefault(evt);
+        }}
     };
     //
     // @private
@@ -621,7 +643,13 @@
       // If the key is not a del key, it should convert to a str
       if (!delKey) {
         // Add char at position and increment delta
-        this.val = utils.addChars(this.val, chars, this.sel.begin);
+        if(!this.is229) {
+          this.val = utils.addChars(this.val, chars, this.sel.begin);
+        }
+        else {
+          this.sel.begin--
+          this.sel.end--
+        }
         this.delta += chars.length;
       }
       // Format el.value (also handles updating caret position)
